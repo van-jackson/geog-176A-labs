@@ -1,0 +1,162 @@
+---
+title: "Geography 176A"
+author: "[Van Jackson](https://github.com/van-jackson)"
+subtitle: 'Lab 02: COVID-19 Pandemic'
+output:
+  html_document:
+    theme: darkly
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+#Question 1
+
+You are a data scientist for the state of California Department of Public Health.
+You’ve been tasked with giving a report to Governor Newsom every morning about the most current COVID-19 conditions at the county level.
+As it stands, the California Department of Public Health maintains a watch list of counties that are being monitored for worsening coronavirus trends. There are six criteria used to place counties on the watch list:
+Doing fewer than 150 tests per 100,000 residents daily (over a 7-day average)
+More than 100 new cases per 100,000 residents over the past 14 days…
+25 new cases per 100,000 residents and an 8% test positivity rate
+10% or greater increase in COVID-19 hospitalized patients over the past 3 days
+Fewer than 20% of ICU beds available
+Fewer than 25% ventilators available
+Of these 6 conditions, you are in charge of monitoring condition number 2.
+To do this job well, you should set up a reproducible framework to communicate the following in a way that can be updated every time new data is released:
+-cumulative cases in the 5 worst counties
+-total NEW cases in the 5 worst counties
+-A list of safe counties
+-A text report describing the total new cases, total cumulative cases and number of safe counties.
+You should build this analysis in such a way that running it will extract the most current data straight from the NY-Times URL, the state name is a parameter that can be changed allowing this report to be run for other states.
+
+```{r}
+library(tidyverse)
+library(knitr)
+library(readxl)
+library(zoo)
+library(ggthemes)
+library(scales)
+Pop = read_excel("../data/lab-02-materials 2/PopulationEstimates.xls", skip = 2) %>% 
+  select(pop2019 = POP_ESTIMATE_2019, fips = FIPStxt, Area_Name)
+
+housing_prices = read_csv("../data/lab-02-materials 2/landdata-states.csv")
+
+covid_data = read_csv("https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties.csv")
+```
+
+```{r}
+#Question 1
+library(tidyverse)
+library(knitr)
+library(readxl)
+library(zoo)
+library(ggthemes)
+library(scales)
+
+
+q1subset = inner_join(Pop, covid_data,by = 'fips') %>%
+  filter(state == "California") %>%
+  group_by(county) %>%
+  mutate(daily_new_cases = cases - lag(cases)) %>%
+  ungroup()
+```
+
+
+```{r}
+mostcases = q1subset %>%
+  filter(date == max(date)) %>%
+  slice_max(cases, n = 5) %>% 
+  select(county, cases)
+
+knitr::kable(mostcases, caption = paste("California", 'counties with the most cumulative cases'), col.names = c('County', 'Cases'))
+```
+
+
+
+```{r}
+mostcases_new = q1subset %>%
+  filter(date == max(date)) %>%
+  slice_max(daily_new_cases, n = 5) %>% 
+  select(county, daily_new_cases)
+
+knitr::kable(mostcases_new, caption = paste("California", 'counties with the most new cases'), col.names = c('County', 'New Cases'))
+```
+
+```{r, message = FALSE}
+library(tidyverse)
+last14days = q1subset %>% 
+  filter(date > max(date) - 13) %>% 
+  group_by(county, pop2019) %>% 
+  summarise(daily_new_cases = sum(daily_new_cases, na.rm = TRUE)) %>% 
+  ungroup() %>% 
+  mutate(casePer100000 = daily_new_cases / (pop2019 / 100000)) %>% 
+  filter(casePer100000 <= 100) %>% 
+  select(county, casePer100000)
+
+knitr::kable(last14days, caption = c("Pop Lowest Cases in CA Counties"), col.names = c('County', 'Lowest New Cases per 100000'))
+```
+
+###Results:
+Cumulative case counts of Covid-19  are the highest in these counties: Los Angeles, Riverside, Orange, San Bernardino, and San Diego. The counties with the highest number of recent, new cases include Los Angeles, San Bernardino, Fresno, Sacramento, and Orange. According to my data frame of "last14days" there are 12 counties with cases per 100,000 less than 100. These counties can be said to be safe. Based on these findings, it is safe to say that population density and total population play a role in whether or not a county has seen a lot of cases, or none at all.
+
+
+
+
+
+
+Question 2
+#In this question, we are going to look at the story of 4 states and the impact scale can have on data interprtation. The states include: New York, California, Louisiana, and Florida.
+
+#Your task is to make a faceted bar plot showing the number of daily, new cases at the state level.
+
+```{r}
+fourStates = covid_data %>%
+  filter(state %in% c("New York", "California", "Louisiana", "Florida")) %>%
+  group_by(state, date) %>%
+  summarise(totalcases = sum(cases)) %>%
+  ungroup() %>%
+  group_by(state) %>%
+  mutate(newCases = totalcases - lag(totalcases)) %>%
+  mutate(roll7 = zoo::rollmean(newCases, 7, fill = NA, allign = "right")) %>% 
+  ungroup()
+
+ggplot(data = fourStates, aes(x = date)) + 
+  geom_col(aes(y = newCases), col = NA, fill = "pink") +
+  geom_line(aes(y = roll7)) +
+  ggthemes::theme_economist() +
+  labs(title = paste("Daily New Cases in NY, CA, LA, FL")) +
+  facet_wrap(~state) +
+  theme(plot.background = element_rect(fill = "white"), panel.background = element_rect(fill = "white"), 
+        plot.title = element_text(size = 10)) +
+  theme(aspect.ratio  = .5)
+```
+
+
+```{r}
+fourStates_pc = covid_data %>%
+  filter(state %in% c("New York", "California", "Louisiana", "Florida")) %>%
+  left_join(Pop, by = c("state" = "Area_Name")) %>% 
+  group_by(state, date) %>%
+  summarise(totalcases = sum(cases), pop2019 = pop2019[1]) %>%
+  ungroup() %>%
+  group_by(state) %>%
+  mutate(newCases = (totalcases - lag(totalcases)) / pop2019) %>%
+  mutate(roll7 = (zoo::rollmean(newCases, 7, fill = NA, allign = "right"))) %>% 
+  ungroup()
+
+
+ggplot(data = fourStates_pc, aes(x = date)) + 
+  geom_col(aes(y = newCases), col = NA, fill = "pink") +
+  geom_line(aes(y = roll7)) +
+  ggthemes::theme_economist() +
+  labs(title = paste("Daily New Cases in NY, CA, LA, FL")) +
+  facet_wrap(~state) +
+  theme(plot.background = element_rect(fill = "white"), panel.background = element_rect(fill = "white"), 
+        plot.title = element_text(size = 10)) +
+  theme(aspect.ratio  = .5)
+```
+
+
+###Results:
+By scaling the covid-19 data, It makes California look a lot better. They all have the same shape in graph when compared with one another, but California can be seen to have the most dramatic change.
