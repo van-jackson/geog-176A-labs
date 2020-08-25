@@ -1,0 +1,284 @@
+title: "Geography 176A"
+author: "[Van Jackson](https://van-jackson.github.io)"
+subtitle: 'Lab 03: Distances and the Border Zone'
+output:
+  html_document:
+    theme: journal
+---
+```{r}
+# SPDS
+library(tidyverse)
+library(sf)
+library(units)
+
+# Data
+library(USAboundaries)
+library(rnaturalearth)
+
+# Visualization
+library(gghighlight)
+library(ggrepel)
+library(knitr)
+```
+
+```{r}
+eqdc = '+proj=eqdc +lat_0=40 +lon_0=-96 +lat_1=20 +lat_2=60 +x_0=0 +y_0=0 +datum=NAD83 +units=m +no_defs'
+ 
+# remotes::install_github("ropensci/USAboundaries")
+# remotes::install_github("ropensci/USAboundariesData")
+# remotes::install_github("ropenscilabs/rnaturalearthdata")
+```
+
+
+
+
+
+#Question 1
+```{r}
+#1.1
+eqdc = '+proj=eqdc +lat_0=40 +lon_0=-96 +lat_1=20 +lat_2=60 +x_0=0 +y_0=0 +datum=NAD83 +units=m +no_defs'
+
+#This is the base projection being used to map the North American vontinent for this lab. 
+
+#1.2
+ContinentalUS = USAboundaries::us_states(resolution = "low") %>% 
+  filter(name != "Hawaii") %>% 
+  filter(name != "Alaska") %>% 
+  filter(name != "Puerto Rico")
+
+ContinentalUS <- st_transform(ContinentalUS, eqdc)
+#st_crs(ContinentalUS)
+
+#1.3
+
+na = rnaturalearth::countries110 %>% 
+  st_as_sf() %>% 
+  filter(admin %in% c("Mexico", "Canada", "United States of America")) %>%   st_transform(eqdc)
+
+#1.4
+cities = read_csv("../data/uscities.csv") %>% 
+  st_as_sf(coords = c("lng", "lat"), crs = 4326) %>% 
+  st_transform(eqdc) %>% 
+  st_filter(ContinentalUS)
+
+
+
+```
+
+
+#Question 2
+```{r}
+#2.1
+conus_string = st_union(ContinentalUS) %>% 
+  st_cast("MULTILINESTRING")
+
+na_string = st_combine(na) %>% 
+  st_cast("MULTILINESTRING")
+
+
+cities = cities %>% 
+  mutate(dist_to_border = st_distance(cities, conus_string),
+         dist_to_border = units::set_units(dist_to_border, "km"),
+         dist_to_border = units::drop_units(dist_to_border))
+
+furthest_from_border = cities %>% 
+  slice_max(dist_to_border, n = 5) %>% 
+  select(city, state_name, dist_to_border) %>% 
+  st_drop_geometry()
+
+kable(furthest_from_border, caption = "Furthest Cities From Border", col.names = c ("City", "State", "Distance"))
+
+
+#2.2
+conus_string2 = st_combine(ContinentalUS) %>% 
+  st_cast("MULTILINESTRING")
+
+cities = cities %>% 
+  mutate(dist_to_state = st_distance(cities, conus_string2),
+         dist_to_state = units::set_units(dist_to_state, "km"),
+         dist_to_state = units::drop_units(dist_to_state))
+
+furthest_from_state = cities %>% 
+  slice_max(dist_to_state, n = 5) %>% 
+  select(city, state_name, dist_to_state) %>% 
+  st_drop_geometry()
+
+kable(furthest_from_state, caption = "Furthest Cities From State Border", col.names = c ("City", "State", "Distance"))
+
+
+  
+#2.3
+cities = cities %>% 
+  mutate(dist_to_mex = st_distance(cities, filter(na, admin == "Mexico")),
+         dist_to_mex = units::set_units(dist_to_mex, "km"),
+         dist_to_mex = units::drop_units(dist_to_mex))
+
+
+furthest_from_mex = cities %>% 
+  slice_max(dist_to_mex, n = 5) %>% 
+  select(city, state_name, dist_to_mex) %>% 
+  st_drop_geometry()
+
+kable(furthest_from_mex, caption = "Furthest Cities From Mexico", col.names = c ("City", "State", "Distance"))
+
+#2.4
+cities = cities %>% 
+  mutate(dist_to_can = st_distance(cities, filter(na, admin == "Canada")),
+         dist_to_can = units::set_units(dist_to_can, "km"),
+         dist_to_can = units::drop_units(dist_to_can))
+
+
+furthest_from_can = cities %>% 
+  slice_max(dist_to_can, n = 5) %>% 
+  select(city, state_name, dist_to_can) %>% 
+  st_drop_geometry()
+
+kable(furthest_from_can, caption = "Furthest Cities From Canada", col.names = c ("City", "State", "Distance"))
+
+
+
+
+```
+
+
+
+#Question 3
+```{r}
+#3.1
+top_ten = cities %>% 
+  slice_max(population, n = 10)
+
+ggplot() + 
+  geom_sf(data = ContinentalUS) + 
+  geom_sf(data = na_string) +
+  geom_sf(data = top_ten) +
+  geom_label_repel(
+  data = top_ten,
+  aes(label = city, geometry=geometry),
+  stat = "sf_coordinates") +
+  theme_linedraw()
+```
+
+
+```{r}
+#3.2
+ggplot() +
+  geom_sf(data = cities, size = .1, aes(color = dist_to_border)) +
+  scale_color_gradient(low = "navy", high = "red") +
+  geom_sf(data= slice_max(cities, dist_to_border, n =5), col = "black") +
+  geom_label_repel(
+    data = slice_max(cities, dist_to_border, n =5),
+    aes(label = city, geometry = geometry),
+    stat= "sf_coordinates") +
+  theme_linedraw()
+```
+```{r}
+#3.3
+ggplot() +
+  geom_sf(data = cities, size = .1, aes(color = dist_to_state)) +
+  scale_color_gradient(low = "navy", high = "red") +
+  geom_sf(data= slice_max(cities, dist_to_state, n =5), col = "black") +
+  geom_label_repel(
+    data = slice_max(cities, dist_to_state, n =5),
+    aes(label = city, geometry = geometry),
+    stat= "sf_coordinates") +
+  theme_linedraw()
+
+
+
+```
+
+
+```{r}
+#3.4
+dist_mex_can = cities %>% 
+  mutate(diff = abs(dist_to_mex - dist_to_can))
+
+disttop5 = dist_mex_can %>% 
+  filter(diff<=100) %>% 
+  slice_max(population, n=5)
+
+ggplot() +
+  geom_sf(data = dist_mex_can, size = .1, aes(col = diff)) +
+  scale_color_gradient(low = "navy", high = "red") +
+  gghighlight(diff<=100) + 
+  geom_sf(data = disttop5, col = "green") +
+  geom_label_repel(
+    data = disttop5,
+    aes(label = city, geometry = geometry),
+    stat= "sf_coordinates") +
+  theme_linedraw()
+```
+
+
+#Question 4
+```{r}
+#4.1
+cities_100m = cities %>% 
+  group_by(state_name) %>% 
+  filter(dist_to_border <= 160.9) %>% 
+  ungroup()
+```
+
+#There are 12,302 cities within the 100 mile zone
+
+```{r}
+popcount = cities_100m %>% 
+  st_drop_geometry() %>% 
+  summarise(population) %>% 
+  sum()
+
+```
+#There are 261547106 people in the zone
+
+
+
+```{r}
+percent = popcount/328200000
+
+```
+
+#79.7% of the population are in this zone
+
+
+#Does it match? 
+
+#No, they claim 2/3 of the population are in these zones when it is actually 79%
+
+
+
+
+
+
+```{r}
+#4.2
+ggplot() + 
+  geom_sf(data = cities, size = .2) + 
+  scale_color_gradient(low = "orange", high = "dark red") +
+  gghighlight(dist_to_border <= 160.9) +
+  geom_label_repel(
+    data = cities,
+    aes(label = city, geometry = geometry),
+    stat= "sf_coordinates")
+
+
+ 
+
+
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
