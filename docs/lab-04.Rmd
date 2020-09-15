@@ -1,11 +1,16 @@
+---
 title: "Geography 176A"
 author: "[Van Jackson](https://van-jackson.github.io)"
 subtitle: 'Lab 04: Tessalations, Point in Polygon'
 output:
   html_document:
     theme: journal
-    
-    
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE, out.width = "75%", fig.align = 'center')
+```
+
 #Libraries
 ```{r}
 # SPDS
