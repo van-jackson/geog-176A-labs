@@ -419,7 +419,7 @@ river = st_intersection(streams$osm_lines, basin)</code></pre>
 <div id="terrain-analysis" class="section level1">
 <h1>Terrain Analysis</h1>
 <pre class="r"><code>wbt_hillshade(&quot;../data/basin_elev_ft.tif&quot;, &quot;../data/basin_hillshade.tif&quot;)</code></pre>
-<pre><code>## [1] &quot;hillshade - Elapsed Time (excluding I/O): 0.46s&quot;</code></pre>
+<pre><code>## [1] &quot;hillshade - Elapsed Time (excluding I/O): 0.36s&quot;</code></pre>
 <pre class="r"><code>hillshade_rast = raster(&quot;../data/basin_hillshade.tif&quot;)
 
 plot(hillshade_rast, col = gray.colors(256, alpha = .5), legend = FALSE, axes = FALSE, box = FALSE)
@@ -439,12 +439,12 @@ writeRaster(HAND, &quot;../data/hand_rast.tif&quot;, overwrite=TRUE)</code></pre
 <div id="hydrologically-corrected-surface" class="section level1">
 <h1>Hydrologically Corrected Surface</h1>
 <pre class="r"><code>wbt_breach_depressions(&quot;../data/basin_elev_ft.tif&quot;,&quot;../data/wbt_b_d.tif&quot;)</code></pre>
-<pre><code>## [1] &quot;breach_depressions - Elapsed Time (excluding I/O): 0.185s&quot;</code></pre>
+<pre><code>## [1] &quot;breach_depressions - Elapsed Time (excluding I/O): 0.220s&quot;</code></pre>
 </div>
 <div id="hand-raster" class="section level1">
 <h1>HAND Raster</h1>
 <pre class="r"><code>wbt_elevation_above_stream(&quot;../data/wbt_b_d.tif&quot;, &quot;../data/hand_rast.tif&quot;, &quot;../data/hand_raster.tif&quot;)</code></pre>
-<pre><code>## [1] &quot;elevation_above_stream - Elapsed Time (excluding I/O): 0.56s&quot;</code></pre>
+<pre><code>## [1] &quot;elevation_above_stream - Elapsed Time (excluding I/O): 0.55s&quot;</code></pre>
 </div>
 <div id="orrecting-to-local-reference-datum" class="section level1">
 <h1>orrecting to local Reference Datum</h1>
